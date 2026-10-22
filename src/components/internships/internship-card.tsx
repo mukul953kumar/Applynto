@@ -6,11 +6,15 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Calendar, CheckCircle2, Clock, MapPin, IndianRupee, ArrowUpRight } from "lucide-react"
 
+import { MatchResult } from "@/lib/matching"
+import { MatchBadge } from "@/components/internships/match-badge"
+
 interface InternshipCardProps {
   internship: InternshipListItem
+  matchResult?: MatchResult
 }
 
-export function InternshipCard({ internship }: InternshipCardProps) {
+export function InternshipCard({ internship, matchResult }: InternshipCardProps) {
   function formatStipend() {
     if (internship.stipendMin && internship.stipendMax) {
       if (internship.stipendMin === internship.stipendMax) {
@@ -61,7 +65,8 @@ export function InternshipCard({ internship }: InternshipCardProps) {
           <SaveButton internshipId={internship.id} initialSaved={internship.isSaved} size="icon" />
         </div>
 
-        <div className="flex flex-wrap gap-1.5 pt-1">
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {matchResult && <MatchBadge match={matchResult} />}
           <Badge variant="outline" className="text-[11px] font-normal">
             {workModeLabels[internship.workMode] || internship.workMode}
           </Badge>

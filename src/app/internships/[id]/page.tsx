@@ -7,6 +7,10 @@ import { PublicHeader } from "@/components/layout/public-header"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getCurrentUser } from "@/lib/session"
+import { prisma } from "@/lib/prisma"
+import { calculateMatchScore } from "@/lib/matching"
+import { MatchBadge } from "@/components/internships/match-badge"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -20,6 +24,8 @@ import {
   Layers,
   MapPin,
   ShieldCheck,
+  Sparkles,
+  Check,
 } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -46,6 +52,32 @@ export default async function InternshipDetailPage({ params }: PageProps) {
   if (!internship) {
     notFound()
   }
+
+  const user = await getCurrentUser()
+  const studentProfile = user
+    ? await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          skills: true,
+          preferredRoles: true,
+          preferredWorkModes: true,
+          preferredLocations: true,
+          graduationYear: true,
+          degree: true,
+          branch: true,
+          minimumStipend: true,
+        },
+      })
+    : null
+
+  const matchResult = studentProfile
+    ? calculateMatchScore(studentProfile, {
+        ...internship,
+        preferredSkills: internship.preferredSkills || [],
+        eligibleDegrees: internship.eligibleDegrees || [],
+        eligibleBranches: internship.eligibleBranches || [],
+      })
+    : null
 
   const { stipendMin, stipendMax, deadline } = internship
 
@@ -197,6 +229,89 @@ export default async function InternshipDetailPage({ params }: PageProps) {
               )}
             </div>
           </div>
+
+          {matchResult && matchResult.score > 0 && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-xs text-foreground">
+                    Deterministic Match Analysis
+                  </h3>
+                </div>
+                <MatchBadge match={matchResult} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                <div className="space-y-1">
+                  <span className="text-[11px] text-muted-foreground block">Matching Skills</span>
+                  <div className="flex flex-wrap gap-1">
+                    {matchResult.matchingSkills.length > 0 ? (
+                      matchResult.matchingSkills.map((s) => (
+                        <span
+                          key={s}
+                          className="inline-flex items-center gap-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 text-[10px] font-medium"
+                        >
+                          <Check className="h-2.5 w-2.5" />
+                          {s}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground italic text-[11px]">No matching skills</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] text-muted-foreground block">Skills to Learn</span>
+                  <div className="flex flex-wrap gap-1">
+                    {matchResult.missingSkills.length > 0 ? (
+                      matchResult.missingSkills.slice(0, 4).map((s) => (
+                        <span
+                          key={s}
+                          className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground border"
+                        >
+                          {s}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-emerald-600 font-medium text-[11px]">
+                        All required skills matched!
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] text-muted-foreground block">Batch & Role Alignment</span>
+                  <div className="text-[11px] space-y-0.5">
+                    <p
+                      className={
+                        matchResult.isGradYearEligible
+                          ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                          : "text-amber-600 font-medium"
+                      }
+                    >
+                      {matchResult.isGradYearEligible
+                        ? "✓ Eligible for your batch"
+                        : "⚠ Batch restriction applies"}
+                    </p>
+                    <p
+                      className={
+                        matchResult.isWorkModeMatch
+                          ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {matchResult.isWorkModeMatch
+                        ? "✓ Work mode aligns with preference"
+                        : "Work mode differs from target"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 px-4 rounded-lg bg-muted/40 border border-border/60">
             <div>

@@ -6,6 +6,9 @@ import { InternshipFilters } from "@/components/internships/internship-filters"
 import { PublicHeader } from "@/components/layout/public-header"
 import { buttonVariants } from "@/components/ui/button"
 import { Briefcase, ChevronLeft, ChevronRight } from "lucide-react"
+import { getCurrentUser } from "@/lib/session"
+import { prisma } from "@/lib/prisma"
+import { calculateMatchScore } from "@/lib/matching"
 import { WorkMode } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
@@ -32,6 +35,23 @@ export default async function InternshipsPage({ searchParams }: PageProps) {
 
   const page = params.page ? parseInt(params.page, 10) : 1
   const minStipend = params.minStipend ? parseInt(params.minStipend, 10) : undefined
+
+  const user = await getCurrentUser()
+  const studentProfile = user
+    ? await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          skills: true,
+          preferredRoles: true,
+          preferredWorkModes: true,
+          preferredLocations: true,
+          graduationYear: true,
+          degree: true,
+          branch: true,
+          minimumStipend: true,
+        },
+      })
+    : null
 
   const result = await getPublicInternships({
     q: params.q,
@@ -100,9 +120,25 @@ export default async function InternshipsPage({ searchParams }: PageProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {result.items.map((internship) => (
-              <InternshipCard key={internship.id} internship={internship} />
-            ))}
+            {result.items.map((internship) => {
+              const matchResult = studentProfile
+                ? calculateMatchScore(studentProfile, {
+                    ...internship,
+                    preferredSkills: [],
+                    eligibleDegrees: [],
+                    eligibleBranches: [],
+                    eligibleGraduationYears: [],
+                  })
+                : undefined
+
+              return (
+                <InternshipCard
+                  key={internship.id}
+                  internship={internship}
+                  matchResult={matchResult}
+                />
+              )
+            })}
           </div>
         )}
 
