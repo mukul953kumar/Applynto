@@ -216,3 +216,49 @@ export async function reportInternship(input: ReportListingInput): Promise<Actio
 
   return { success: true }
 }
+
+export async function getInternshipById(id: string) {
+  const user = await getCurrentUser()
+  const now = new Date()
+
+  const internship = await prisma.internship.findUnique({
+    where: { id },
+  })
+
+  if (!internship) {
+    return null
+  }
+
+  let isSaved = false
+  let existingApplicationId: string | null = null
+
+  if (user) {
+    const [savedRecord, applicationRecord] = await Promise.all([
+      prisma.savedInternship.findUnique({
+        where: {
+          userId_internshipId: {
+            userId: user.id,
+            internshipId: id,
+          },
+        },
+      }),
+      prisma.application.findFirst({
+        where: {
+          userId: user.id,
+          internshipId: id,
+        },
+        select: { id: true },
+      }),
+    ])
+    isSaved = Boolean(savedRecord)
+    existingApplicationId = applicationRecord?.id || null
+  }
+
+  return {
+    ...internship,
+    isSaved,
+    existingApplicationId,
+    isExpired: internship.deadline ? internship.deadline < now : false,
+  }
+}
+
