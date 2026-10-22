@@ -19,3 +19,8 @@ PROGRESS.md
 progress.md
 agent_rules.md
 prd.md
+/src/generated/prisma
+.claude/
+.windsurf/
+.agents/
+skills-lock.json
